@@ -11,7 +11,6 @@ import multiprocessing
 from math import factorial
 from multiprocessing import Pool
 
-
 def calc_similarity(pair, metrics='lch', infcont=None, printing=False):
     syns0 = wn.synset(pair[0])
     syns1 = wn.synset(pair[1])
