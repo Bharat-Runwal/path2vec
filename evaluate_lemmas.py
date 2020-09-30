@@ -9,7 +9,7 @@ from nltk.corpus import wordnet as wn
 from itertools import product
 
 
-def evaluate_synsets(emb_model, pairs, our_logger, delimiter='\t', dummy4unknown=False):
+def evaluate_synsets(emb_model, pairs,flag_emb,flag_nv, our_logger, delimiter='\t', dummy4unknown=False):
     ok_vocab = [(w, emb_model.vocab[w]) for w in emb_model.index2word]
     ok_vocab = dict(ok_vocab)
 
@@ -34,8 +34,12 @@ def evaluate_synsets(emb_model, pairs, our_logger, delimiter='\t', dummy4unknown
                 continue
 
             # Finding correct synsets
-            synsets_a = wn.synsets(a.strip(), 'n')
-            synsets_b = wn.synsets(b.strip(), 'n')
+            if flag_nv:
+                synsets_a = wn.synsets(a.strip(), 'n')
+                synsets_b = wn.synsets(b.strip(), 'n')
+            else:
+                synsets_a = wn.synsets(a.strip(), 'v')
+                synsets_b = wn.synsets(b.strip(), 'v')
 
             if len(list(synsets_a)) == 0 or len(list(synsets_b)) == 0:
                 oov += 1
@@ -53,7 +57,10 @@ def evaluate_synsets(emb_model, pairs, our_logger, delimiter='\t', dummy4unknown
             best_pair = None
             best_sim = 0.0
             for pair in product(synsets_a, synsets_b):
-                possible_similarity = emb_model.similarity(pair[0].name(), pair[1].name())
+                if flag_emb:
+                    possible_similarity = emb_model.similarity(pair[0].lemmas()[0].key(), pair[1].lemmas()[0].key())
+                else:
+                    possible_similarity = emb_model.similarity(pair[0].name(), pair[1].name())
                 if possible_similarity > best_sim:
                     best_pair = pair
                     best_sim = possible_similarity
@@ -84,14 +91,28 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
 
     # Loading model and semantic similarity dataset
-    modelfile, simfile = sys.argv[1:3]
+    #flag_em is true for word sense and false for synset 
+    #flag_nv is true for noun and false for verb
+    modelfile, simfile ,flags_nv,flags_emb= sys.argv[1:5]
+    flag_emb = False
+    flag_nv = True
+    if flags_emb=="w":
+        flag_emb=True
+    else:
+        flag_emb=False
+    
+    if flags_nv == "t":
+        flag_nv=True
+    else:
+        flag_nv=False
+    
 
     model = models.KeyedVectors.load_word2vec_format(modelfile, binary=False)
 
     # Pre-calculating vector norms
     model.init_sims(replace=True)
 
-    scores = evaluate_synsets(model, simfile, logger, dummy4unknown=True)
+    scores = evaluate_synsets(model, simfile, flag_emb,flag_nv,logger, dummy4unknown=True,)
 
     name = modelfile.replace('_embeddings_', '_')[:-7]
 
